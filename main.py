@@ -72,9 +72,9 @@ async def crawl_stable_docs_async(doc_type=None):
     crawler = ModAPICrawler()
 
     for key, config in docs_to_crawl.items():
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"正在爬取: {config['name']}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         count = await crawler.crawl_documentation(
             index_url=config["index_url"],
@@ -83,9 +83,9 @@ async def crawl_stable_docs_async(doc_type=None):
         )
         total_pages += count
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"全部完成! 共爬取 {total_pages} 个页面")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 async def crawl_beta_doc_async(url):
@@ -95,9 +95,9 @@ async def crawl_beta_doc_async(url):
     Args:
         url: Beta文档URL
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"正在爬取Beta更新文档")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     crawler = ModAPICrawler()
     await crawler.crawl_beta_page(url, BETA_CONFIG["output_dir"])
@@ -139,9 +139,7 @@ def interactive_menu():
             crawl_stable_docs("enums")
         elif choice == "5":
             print("\n请输入Beta更新文档URL:")
-            print(
-                "示例: https://mc.163.com/dev/mcmanual/mc-dev/mcdocs/1-ModAPI-beta/更新信息/3.7.html"
-            )
+            print("示例: https://mc.163.com/dev/mcmanual/mc-dev/mcdocs/1-ModAPI-beta/更新信息/3.7.html")
             url = input("URL: ").strip()
             if url:
                 crawl_beta_doc(url)

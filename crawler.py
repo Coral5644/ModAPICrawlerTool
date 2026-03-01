@@ -24,12 +24,23 @@ class ModAPICrawler:
         self.visited_urls = set()
 
     async def init_browser(self):
-        """初始化浏览器"""
+        """初始化浏览器（优先使用系统已安装的 Edge/Chrome）"""
         if self.browser is None:
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(
-                headless=CRAWL_CONFIG["headless"]
-            )
+            # 优先尝试使用系统已安装的浏览器，避免下载 Playwright 自带的 Chromium
+            for channel in ("msedge", "chrome", None):
+                try:
+                    launch_args = {"headless": CRAWL_CONFIG["headless"]}
+                    if channel:
+                        launch_args["channel"] = channel
+                    self.browser = await self.playwright.chromium.launch(**launch_args)
+                    if channel:
+                        print(f"  使用系统浏览器: {channel}")
+                    break
+                except Exception:
+                    if channel is None:
+                        raise  # 所有方式都失败，抛出原始异常
+                    continue
             self.context = await self.browser.new_context()
 
     async def close_browser(self):
@@ -165,13 +176,9 @@ class ModAPICrawler:
         """清理Markdown内容"""
         # 将相对路径链接转换为完整URL
         base_url = "https://mc.163.com"
-        markdown = re.sub(
-            r"\]\(/dev/mcmanual/", f"]({base_url}/dev/mcmanual/", markdown
-        )
+        markdown = re.sub(r"\]\(/dev/mcmanual/", f"]({base_url}/dev/mcmanual/", markdown)
         # 处理其他相对路径
-        markdown = re.sub(
-            r"\]\(\.\./", f"]({base_url}/dev/mcmanual/mc-dev/mcdocs/", markdown
-        )
+        markdown = re.sub(r"\]\(\.\./", f"]({base_url}/dev/mcmanual/mc-dev/mcdocs/", markdown)
 
         # 移除多余的空行
         markdown = re.sub(r"\n{4,}", "\n\n\n", markdown)
@@ -233,9 +240,7 @@ class ModAPICrawler:
         # 用反引号包裹方括号内的值，避免被当作链接引用
         # 匹配 [0,1], [0~360], [True, False], [1.0, 1.0, 1.0f] 等
         markdown = re.sub(r"\[([0-9.,~\s]+f?)\]", r"`[\1]`", markdown)  # 数字范围
-        markdown = re.sub(
-            r"\[((?:True|False)(?:,\s*(?:True|False|[0-9.]+))*)\]", r"`[\1]`", markdown
-        )  # 布尔值组合
+        markdown = re.sub(r"\[((?:True|False)(?:,\s*(?:True|False|[0-9.]+))*)\]", r"`[\1]`", markdown)  # 布尔值组合
 
         # 用反引号包裹代码内容，避免被误解析且渲染更美观
         # 匹配 ['xxx'] 或 ["xxx"] 格式的列表 (如 ['minecraft:is_food'])
@@ -376,11 +381,7 @@ class ModAPICrawler:
             anchor = re.sub(r"-\d+$", "", anchor)
             # 移除末尾的数字（但不是 %XX 编码的一部分）
             while anchor and anchor[-1].isdigit():
-                if (
-                    len(anchor) >= 3
-                    and anchor[-3] == "%"
-                    and anchor[-2] in "0123456789ABCDEFabcdef"
-                ):
+                if len(anchor) >= 3 and anchor[-3] == "%" and anchor[-2] in "0123456789ABCDEFabcdef":
                     break
                 anchor = anchor[:-1]
             return f"(#{anchor})"
@@ -396,9 +397,7 @@ class ModAPICrawler:
         with open(filepath, "w", encoding=OUTPUT_CONFIG["encoding"]) as f:
             f.write(content)
 
-    async def crawl_pages_concurrent(
-        self, links: list, output_dir: str, max_concurrent: int = 5
-    ) -> int:
+    async def crawl_pages_concurrent(self, links: list, output_dir: str, max_concurrent: int = 5) -> int:
         """
         并发爬取多个页面
         """
@@ -433,9 +432,7 @@ class ModAPICrawler:
 
         return count
 
-    async def crawl_documentation(
-        self, index_url: str, section_name: str, output_dir: str
-    ) -> int:
+    async def crawl_documentation(self, index_url: str, section_name: str, output_dir: str) -> int:
         """
         爬取整个文档区块
         """
@@ -463,13 +460,9 @@ class ModAPICrawler:
                 return 0
 
             print(f"  找到 {len(links)} 个文档")
-            print(
-                f"  开始并发爬取 (最大并发: {CRAWL_CONFIG.get('max_concurrent', 5)})...\n"
-            )
+            print(f"  开始并发爬取 (最大并发: {CRAWL_CONFIG.get('max_concurrent', 5)})...\n")
 
-            count = await self.crawl_pages_concurrent(
-                links, output_dir, CRAWL_CONFIG.get("max_concurrent", 5)
-            )
+            count = await self.crawl_pages_concurrent(links, output_dir, CRAWL_CONFIG.get("max_concurrent", 5))
 
             print(f"\n完成! 共爬取 {count} 个页面")
             return count
